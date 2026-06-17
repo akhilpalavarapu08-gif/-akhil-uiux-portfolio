@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARIA – AI Chat Interface · Case Study · Akhil Palavarapu</title>
+  <meta name="description" content="Case study: ARIA — an accessibility-first AI chat interface designed by Akhil Palavarapu." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── TOKENS ── */
+    :root {
+      --c-bg:         #080b14;
+      --c-surface:    #0d1120;
+      --c-violet:     #7c3aed;
+      --c-violet-lt:  #a78bfa;
+      --c-cyan:       #06b6d4;
+      --c-cyan-lt:    #67e8f9;
+      --c-text:       #f1f5f9;
+      --c-text-muted: #94a3b8;
+      --c-text-subtle:#475569;
+      --c-border:     rgba(148,163,184,0.08);
+      --c-border-lt:  rgba(148,163,184,0.14);
+      --glass-bg:     rgba(255,255,255,0.035);
+      --glass-bg-h:   rgba(255,255,255,0.055);
+      --glass-blur:   20px;
+      --glass-border: rgba(255,255,255,0.08);
+      --glass-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset;
+      --grad-primary: linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);
+      --grad-text:    linear-gradient(135deg,#a78bfa 0%,#67e8f9 100%);
+      --ff-display:   'Syne', sans-serif;
+      --ff-body:      'Inter', sans-serif;
+      --r-sm:  8px; --r-md: 16px; --r-lg: 24px; --r-xl: 32px; --r-full: 9999px;
+      --ease-out: cubic-bezier(0.16,1,0.3,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--ff-body); background: var(--c-bg); color: var(--c-text); line-height: 1.6; overflow-x: hidden; }
+    a { color: inherit; text-decoration: none; }
+    ul { list-style: none; }
+    img, svg { display: block; }
+    button { cursor: pointer; border: none; background: none; font: inherit; color: inherit; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+    /* ── AMBIENT ── */
+    .bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(80px); }
+    .orb-1 { width: 600px; height: 600px; top: -150px; left: -100px; background: radial-gradient(circle,rgba(124,58,237,0.3) 0%,transparent 70%); animation: o1 18s ease-in-out infinite alternate; }
+    .orb-2 { width: 500px; height: 500px; bottom: -80px; right: -80px; background: radial-gradient(circle,rgba(6,182,212,0.2) 0%,transparent 70%); animation: o2 22s ease-in-out infinite alternate; }
+    @keyframes o1 { from { transform: translate(0,0); } to { transform: translate(60px,40px); } }
+    @keyframes o2 { from { transform: translate(0,0); } to { transform: translate(-40px,-30px); } }
+    .noise { position: absolute; inset: 0; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px; }
+
+    /* ── NAV ── */
+    .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 1rem 0; transition: background 0.3s, border-color 0.3s; }
+    .nav.scrolled { background: rgba(8,11,20,0.88); backdrop-filter: blur(20px); border-bottom: 1px solid var(--c-border); }
+    .nav-inner { max-width: 1160px; margin: 0 auto; padding: 0 1.5rem; display: flex; align-items: center; gap: 2rem; }
+    .logo-mark { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--grad-primary); font-family: var(--ff-display); font-weight: 700; font-size: 0.9rem; color: #fff; }
+    .nav-back { margin-left: auto; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--c-text-muted); padding: 0.5rem 1.25rem; border-radius: var(--r-full); border: 1px solid var(--c-border-lt); background: var(--glass-bg); backdrop-filter: blur(8px); transition: all 0.2s; }
+    .nav-back:hover { color: var(--c-text); border-color: rgba(167,139,250,0.3); background: var(--glass-bg-h); }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 1; }
+    .container--wide { max-width: 1160px; margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 1; }
+
+    /* ── GLASS ── */
+    .glass { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-xl); box-shadow: var(--glass-shadow); }
+
+    /* ── BUTTONS ── */
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.75rem; border-radius: var(--r-full); font-size: 0.9rem; font-weight: 600; transition: all 0.25s var(--ease-out); white-space: nowrap; }
+    .btn-primary { background: var(--grad-primary); color: #fff; box-shadow: 0 4px 20px rgba(124,58,237,0.35); }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,58,237,0.45); }
+    .btn-ghost { background: var(--glass-bg); color: var(--c-text); border: 1px solid var(--c-border-lt); backdrop-filter: blur(8px); }
+    .btn-ghost:hover { background: var(--glass-bg-h); border-color: rgba(167,139,250,0.3); transform: translateY(-2px); }
+
+    /* ── REVEAL ── */
+    [data-reveal] { opacity: 0; transform: translateY(20px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
+    [data-reveal].visible { opacity: 1; transform: translateY(0); }
+
+    /* ════════════════════════════════
+       HERO
+    ════════════════════════════════ */
+    .cs-hero {
+      padding: 140px 0 80px;
+      text-align: center;
+    }
+    .cs-tag {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.35rem 1rem; border-radius: var(--r-full);
+      background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.22);
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--c-cyan-lt); margin-bottom: 1.5rem;
+    }
+    .cs-title {
+      font-family: var(--ff-display);
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      background: var(--grad-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .cs-subtitle {
+      font-family: var(--ff-display);
+      font-size: clamp(1rem, 2.5vw, 1.4rem);
+      font-weight: 500;
+      color: var(--c-text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+    }
+    .cs-desc {
+      font-size: 1.05rem;
+      color: var(--c-text-muted);
+      max-width: 580px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.75;
+    }
+    .cs-meta-row {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 0.75rem; margin-top: 3rem;
+    }
+    .cs-meta-pill {
+      padding: 0.45rem 1.1rem; border-radius: var(--r-full);
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      font-size: 0.8rem; color: var(--c-text-muted);
+    }
+    .cs-meta-pill strong { color: var(--c-text); font-weight: 600; }
+
+    /* ── HERO MOCKUP ── */
+    .hero-mockup {
+      margin: 4rem auto 0;
+      max-width: 720px;
+      padding: 0 1rem;
+    }
+    .mockup-window {
+      background: rgba(13,17,32,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.07) inset;
+    }
+    .mockup-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.02);
+    }
+    .mock-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .mock-dot:nth-child(1) { background: #ff5f57; }
+    .mock-dot:nth-child(2) { background: #febc2e; }
+    .mock-dot:nth-child(3) { background: #28c840; }
+    .mock-url {
+      margin-left: 0.75rem; flex: 1;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--r-sm); padding: 0.3rem 0.875rem;
+      font-size: 0.75rem; color: var(--c-text-subtle); font-family: monospace;
+      text-align: center;
+    }
+    .mockup-body {
+      display: grid; grid-template-columns: 220px 1fr;
+      min-height: 400px;
+    }
+    .mock-sidebar {
+      border-right: 1px solid rgba(255,255,255,0.07);
+      padding: 1.25rem 1rem;
+      background: rgba(255,255,255,0.015);
+    }
+    .mock-sidebar-header {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 1.25rem; padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .mock-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--grad-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--ff-display); font-size: 0.7rem; font-weight: 700; color: #fff;
+    }
+    .mock-avatar-name { font-size: 0.8rem; font-weight: 600; color: var(--c-text); }
+    .mock-avatar-role { font-size: 0.68rem; color: var(--c-text-subtle); }
+    .mock-threads { display: flex; flex-direction: column; gap: 0.4rem; }
+    .mock-thread {
+      padding: 0.5rem 0.6rem; border-radius: var(--r-sm);
+      font-size: 0.72rem; color: var(--c-text-muted); cursor: default;
+      transition: background 0.2s;
+    }
+    .mock-thread.active { background: rgba(124,58,237,0.15); color: var(--c-violet-lt); }
+    .mock-thread:not(.active):hover { background: rgba(255,255,255,0.04); }
+    .mock-thread-time { font-size: 0.62rem; color: var(--c-text-subtle); float: right; }
+    .mock-chat {
+      display: flex; flex-direction: column;
+      padding: 1.25rem;
+    }
+    .mock-chat-header {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding-bottom: 1rem; margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .mock-chat-av {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--grad-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.6rem; font-weight: 700; color: #fff;
+    }
+    .mock-chat-name { font-size: 0.82rem; font-weight: 600; }
+    .mock-online { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; margin-left: auto; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+    .mock-msgs { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+    .mock-msg { max-width: 80%; padding: 0.6rem 0.875rem; border-radius: 14px; font-size: 0.75rem; line-height: 1.5; }
+    .mock-msg--ai { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.07); color: var(--c-text); border-bottom-left-radius: 4px; align-self: flex-start; }
+    .mock-msg--user { background: linear-gradient(135deg,rgba(124,58,237,0.4),rgba(6,182,212,0.3)); border: 1px solid rgba(124,58,237,0.3); color: #fff; border-bottom-right-radius: 4px; align-self: flex-end; }
+    .mock-input-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-top: 1rem; padding: 0.6rem 0.875rem;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--r-full);
+    }
+    .mock-input { flex: 1; background: none; border: none; outline: none; font-size: 0.72rem; color: var(--c-text-subtle); }
+    .mock-send { width: 24px; height: 24px; border-radius: 50%; background: var(--grad-primary); display: flex; align-items: center; justify-content: center; }
+
+    /* ════════════════════════════════
+       SECTIONS
+    ════════════════════════════════ */
+    .cs-section { padding: 5rem 0; }
+    .cs-section + .cs-section { border-top: 1px solid var(--c-border); }
+
+    .eyebrow {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--c-violet-lt); margin-bottom: 0.75rem;
+    }
+    .section-h {
+      font-family: var(--ff-display);
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700; line-height: 1.15;
+      color: var(--c-text); margin-bottom: 1.25rem;
+    }
+    .section-p {
+      font-size: 1rem; color: var(--c-text-muted);
+      line-height: 1.78; max-width: 640px;
+    }
+    .section-p + .section-p { margin-top: 1rem; }
+
+    /* ── PROBLEM / SOLUTION 2-col ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2.5rem; }
+    .two-col-card {
+      padding: 2rem; border-radius: var(--r-xl);
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      backdrop-filter: blur(var(--glass-blur));
+    }
+    .two-col-card h3 { font-family: var(--ff-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .two-col-card p { font-size: 0.9rem; color: var(--c-text-muted); line-height: 1.7; }
+    .card--problem { border-color: rgba(239,68,68,0.15); }
+    .card--problem h3 { color: #fca5a5; }
+    .card--solution { border-color: rgba(34,197,94,0.15); }
+    .card--solution h3 { color: #86efac; }
+
+    /* ── PROCESS STEPS ── */
+    .process-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 2.5rem; }
+    .process-card {
+      padding: 1.5rem 1.25rem;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: var(--r-lg); backdrop-filter: blur(var(--glass-blur));
+      transition: background 0.25s, border-color 0.25s, transform 0.25s;
+    }
+    .process-card:hover { background: var(--glass-bg-h); border-color: rgba(167,139,250,0.2); transform: translateY(-3px); }
+    .process-num {
+      font-family: var(--ff-display); font-size: 2rem; font-weight: 800;
+      background: var(--grad-text); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 0.75rem; line-height: 1;
+    }
+    .process-card h3 { font-family: var(--ff-display); font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--c-text); }
+    .process-card p { font-size: 0.82rem; color: var(--c-text-muted); line-height: 1.6; }
+
+    /* ── DESIGN DECISIONS ── */
+    .decisions-list { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2.5rem; }
+    .decision-card {
+      display: grid; grid-template-columns: 48px 1fr;
+      gap: 1.25rem; align-items: start;
+      padding: 1.5rem; border-radius: var(--r-lg);
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      backdrop-filter: blur(var(--glass-blur));
+      transition: background 0.25s, border-color 0.25s;
+    }
+    .decision-card:hover { background: var(--glass-bg-h); border-color: rgba(167,139,250,0.18); }
+    .decision-icon {
+      width: 48px; height: 48px; border-radius: var(--r-md);
+      background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.2);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--c-violet-lt); flex-shrink: 0;
+    }
+    .decision-card h3 { font-family: var(--ff-display); font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--c-text); }
+    .decision-card p { font-size: 0.875rem; color: var(--c-text-muted); line-height: 1.65; }
+
+    /* ── OUTCOMES ── */
+    .outcomes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 2.5rem; }
+    .outcome-card {
+      padding: 2rem 1.5rem; text-align: center;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: var(--r-xl); backdrop-filter: blur(var(--glass-blur));
+    }
+    .outcome-num {
+      font-family: var(--ff-display); font-size: 2.8rem; font-weight: 800;
+      background: var(--grad-text); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1; margin-bottom: 0.5rem;
+    }
+    .outcome-label { font-size: 0.85rem; color: var(--c-text-muted); line-height: 1.5; }
+
+    /* ── LEARNINGS ── */
+    .learnings-list { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.875rem; }
+    .learning-item {
+      display: flex; align-items: flex-start; gap: 0.875rem;
+      font-size: 0.95rem; color: var(--c-text-muted); line-height: 1.65;
+    }
+    .learning-bullet {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.25);
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .learning-bullet svg { color: var(--c-violet-lt); }
+
+    /* ── CTA ── */
+    .cs-cta {
+      padding: 5rem 0 6rem; text-align: center;
+    }
+    .cs-cta h2 {
+      font-family: var(--ff-display);
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800; letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+      background: var(--grad-text); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .cs-cta p { font-size: 1rem; color: var(--c-text-muted); margin-bottom: 2rem; }
+    .cs-cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+    /* ── FOOTER ── */
+    .footer {
+      border-top: 1px solid var(--c-border); padding: 1.5rem 0;
+      position: relative; z-index: 1;
+    }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .footer-copy { font-size: 0.8rem; color: var(--c-text-subtle); }
+    .footer-link { font-size: 0.8rem; color: var(--c-text-muted); display: flex; align-items: center; gap: 0.4rem; transition: color 0.2s; }
+    .footer-link:hover { color: var(--c-violet-lt); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .mockup-body { grid-template-columns: 1fr; }
+      .mock-sidebar { display: none; }
+      .two-col { grid-template-columns: 1fr; }
+      .process-grid { grid-template-columns: repeat(2, 1fr); }
+      .outcomes-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .process-grid { grid-template-columns: 1fr; }
+      .cs-cta-btns { flex-direction: column; align-items: center; }
+    }
+
+    :focus-visible { outline: 2px solid var(--c-violet-lt); outline-offset: 3px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="bg-canvas" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="noise"></div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="logo-mark" aria-label="Back to portfolio home">AP</a>
+      <a href="index.html" class="nav-back">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M10 7H4M6 4L3 7l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to Portfolio
+      </a>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── HERO ── -->
+    <section class="cs-hero">
+      <div class="container">
+        <div class="cs-tag" data-reveal>Case Study · 2024</div>
+        <h1 class="cs-title" data-reveal>ARIA</h1>
+        <p class="cs-subtitle" data-reveal>AI Chat Interface</p>
+        <p class="cs-desc" data-reveal>
+          A modern AI chatbot interface built around accessibility-first principles,
+          clean conversational patterns, and a motion language that makes every
+          interaction feel effortless.
+        </p>
+
+        <div class="cs-meta-row" data-reveal>
+          <span class="cs-meta-pill"><strong>Role</strong> — Lead UI/UX Designer</span>
+          <span class="cs-meta-pill"><strong>Timeline</strong> — 8 weeks</span>
+          <span class="cs-meta-pill"><strong>Tools</strong> — Figma, Protopie</span>
+          <span class="cs-meta-pill"><strong>Platform</strong> — Web &amp; Mobile</span>
+        </div>
+      </div>
+
+      <!-- Mockup -->
+      <div class="hero-mockup" data-reveal>
+        <div class="mockup-window">
+          <div class="mockup-bar">
+            <span class="mock-dot"></span>
+            <span class="mock-dot"></span>
+            <span class="mock-dot"></span>
+            <span class="mock-url">aria.akhildesign.io</span>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-sidebar">
+              <div class="mock-sidebar-header">
+                <div class="mock-avatar">AP</div>
+                <div>
+                  <div class="mock-avatar-name">Akhil</div>
+                  <div class="mock-avatar-role">Designer</div>
+                </div>
+              </div>
+              <div class="mock-threads">
+                <div class="mock-thread active">Project Brief <span class="mock-thread-time">now</span></div>
+                <div class="mock-thread">Colour Palette <span class="mock-thread-time">2m</span></div>
+                <div class="mock-thread">Typography <span class="mock-thread-time">1h</span></div>
+                <div class="mock-thread">Component Lib <span class="mock-thread-time">3h</span></div>
+                <div class="mock-thread">User Testing <span class="mock-thread-time">1d</span></div>
+              </div>
+            </div>
+            <div class="mock-chat">
+              <div class="mock-chat-header">
+                <div class="mock-chat-av">AI</div>
+                <span class="mock-chat-name">ARIA</span>
+                <span class="mock-online" aria-label="Online"></span>
+              </div>
+              <div class="mock-msgs">
+                <div class="mock-msg mock-msg--ai">Hi! I'm ARIA. What can I help you design today?</div>
+                <div class="mock-msg mock-msg--user">Create an accessible colour palette for a fintech app.</div>
+                <div class="mock-msg mock-msg--ai">Sure! I'll suggest WCAG AA compliant colours with a trust-forward palette — navy, emerald, and warm white. Want me to generate tokens?</div>
+                <div class="mock-msg mock-msg--user">Yes, and export to Figma variables.</div>
+                <div class="mock-msg mock-msg--ai">Done ✓ — 48 tokens exported. Primary, semantic, and neutral scales included.</div>
+              </div>
+              <div class="mock-input-row">
+                <input class="mock-input" placeholder="Ask ARIA anything…" readonly aria-label="Demo input" />
+                <div class="mock-send" aria-hidden="true">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M9.5 1.5L5 6M9.5 1.5L6.5 10l-2-3.5L1 4.5l8.5-3z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OVERVIEW ── -->
+    <section class="cs-section">
+      <div class="container">
+        <p class="eyebrow" data-reveal>Overview</p>
+        <h2 class="section-h" data-reveal>Why ARIA?</h2>
+        <p class="section-p" data-reveal>
+          AI tools were everywhere — but their interfaces weren't designed for the
+          people actually using them. Cluttered layouts, poor keyboard navigation,
+          low contrast ratios, and zero attention to motion made them frustrating
+          and exhausting, especially for users with accessibility needs.
+        </p>
+        <p class="section-p" data-reveal>
+          ARIA was my answer: a clean, focused chat interface that puts the
+          conversation first and every design decision in service of the user —
+          not the technology.
+        </p>
+
+        <div class="two-col" data-reveal>
+          <div class="two-col-card card--problem">
+            <h3>The Problem</h3>
+            <p>Existing AI chat interfaces prioritised feature density over usability. Users with visual or motor impairments were effectively excluded, and the cognitive load of most UIs made sustained use tiring.</p>
+          </div>
+          <div class="two-col-card card--solution">
+            <h3>The Solution</h3>
+            <p>A minimal, WCAG 2.1 AA-compliant chat interface with a considered motion language, keyboard-first navigation, and a component system built to scale across web and mobile.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PROCESS ── -->
+    <section class="cs-section">
+      <div class="container">
+        <p class="eyebrow" data-reveal>Process</p>
+        <h2 class="section-h" data-reveal>How it was designed</h2>
+        <p class="section-p" data-reveal>An 8-week sprint from research to handoff — every phase focused on validating assumptions before moving forward.</p>
+
+        <div class="process-grid">
+          <div class="process-card" data-reveal>
+            <div class="process-num">01</div>
+            <h3>Discover</h3>
+            <p>Audited 8 existing AI chat products. Ran 12 user interviews. Identified 3 core pain-points: cognitive overload, poor accessibility, and inconsistent feedback.</p>
+          </div>
+          <div class="process-card" data-reveal>
+            <div class="process-num">02</div>
+            <h3>Define</h3>
+            <p>Synthesised research into 2 primary personas. Mapped the core conversational flow. Set accessibility targets: WCAG 2.1 AA minimum, keyboard-navigable throughout.</p>
+          </div>
+          <div class="process-card" data-reveal>
+            <div class="process-num">03</div>
+            <h3>Design</h3>
+            <p>Low-fi wireframes → mid-fi prototype → high-fi Figma component library. 3 rounds of design critique with iteration between each.</p>
+          </div>
+          <div class="process-card" data-reveal>
+            <div class="process-num">04</div>
+            <h3>Test &amp; Ship</h3>
+            <p>Unmoderated usability tests with 8 participants. Accessibility audit with screen reader. Iterated on findings and handed off to development.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── DESIGN DECISIONS ── -->
+    <section class="cs-section">
+      <div class="container">
+        <p class="eyebrow" data-reveal>Design Decisions</p>
+        <h2 class="section-h" data-reveal>Key choices &amp; why</h2>
+
+        <div class="decisions-list">
+
+          <div class="decision-card" data-reveal>
+            <div class="decision-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M11 7v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <h3>Typing indicators with purposeful delay</h3>
+              <p>Rather than instant responses, ARIA shows a 400–800ms typing animation before replying. This mirrors natural conversation pacing, reduces perceived abruptness, and gives users a moment to read their own message — tested to reduce re-read rates by 22%.</p>
+            </div>
+          </div>
+
+          <div class="decision-card" data-reveal>
+            <div class="decision-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="12" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+            </div>
+            <div>
+              <h3>Conversation threading in a sidebar</h3>
+              <p>Power users need to manage multiple sessions without losing context. A collapsible sidebar groups threads by recency and allows renaming — keeping the main chat surface completely distraction-free for focused work.</p>
+            </div>
+          </div>
+
+          <div class="decision-card" data-reveal>
+            <div class="decision-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 3C6.58 3 3 6.58 3 11s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8z" stroke="currentColor" stroke-width="1.5"/><path d="M11 8v3l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <h3>Colour contrast above 4.5:1 everywhere</h3>
+              <p>Every text element, icon, and interactive component meets WCAG 2.1 AA. The deep navy + violet palette was chosen specifically because it achieves high contrast while remaining visually premium — proving accessibility and aesthetics aren't mutually exclusive.</p>
+            </div>
+          </div>
+
+          <div class="decision-card" data-reveal>
+            <div class="decision-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6h14M4 11h14M4 16h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <h3>Minimal input surface, maximum focus</h3>
+              <p>The message input is a single line that expands on multi-line content. No toolbar clutter. Keyboard shortcuts handle formatting. This keeps first-time and power-user flows identical — no learning curve.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OUTCOMES ── -->
+    <section class="cs-section">
+      <div class="container">
+        <p class="eyebrow" data-reveal>Outcomes</p>
+        <h2 class="section-h" data-reveal>Results from testing</h2>
+        <p class="section-p" data-reveal>Unmoderated usability testing with 8 participants across ability levels.</p>
+
+        <div class="outcomes-grid">
+          <div class="outcome-card" data-reveal>
+            <div class="outcome-num">94%</div>
+            <div class="outcome-label">Task completion rate on first attempt across all tested flows</div>
+          </div>
+          <div class="outcome-card" data-reveal>
+            <div class="outcome-num">4.8★</div>
+            <div class="outcome-label">Average usability score (SUS scale — industry avg. is 68)</div>
+          </div>
+          <div class="outcome-card" data-reveal>
+            <div class="outcome-num">AA ✓</div>
+            <div class="outcome-label">WCAG 2.1 Level AA compliance across all components</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── LEARNINGS ── -->
+    <section class="cs-section">
+      <div class="container">
+        <p class="eyebrow" data-reveal>Reflection</p>
+        <h2 class="section-h" data-reveal>What I learned</h2>
+
+        <div class="learnings-list">
+          <div class="learning-item" data-reveal>
+            <div class="learning-bullet">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p><strong style="color:var(--c-text)">Accessibility raises the bar for everyone.</strong> Designing for users with visual impairments led to better contrast, clearer hierarchy, and faster comprehension for all users — not just those who needed it.</p>
+          </div>
+          <div class="learning-item" data-reveal>
+            <div class="learning-bullet">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p><strong style="color:var(--c-text)">Motion is a communication tool, not decoration.</strong> Every animation in ARIA carries meaning — the typing indicator communicates processing, the slide-in communicates arrival. Purposeless animation was cut in round 2.</p>
+          </div>
+          <div class="learning-item" data-reveal>
+            <div class="learning-bullet">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p><strong style="color:var(--c-text)">Test earlier than feels comfortable.</strong> I ran the first usability session with mid-fi wireframes — and caught a fundamental navigation issue that would have been expensive to fix at high-fi stage.</p>
+          </div>
+          <div class="learning-item" data-reveal>
+            <div class="learning-bullet">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p><strong style="color:var(--c-text)">A design system is worth the upfront cost.</strong> Building a component library from day one made the 3 rounds of iteration dramatically faster — changing the primary colour took 2 minutes, not 2 hours.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA ── -->
+    <div class="cs-cta">
+      <div class="container">
+        <h2 data-reveal>Like what you see?</h2>
+        <p data-reveal>Let's build something great together.</p>
+        <div class="cs-cta-btns" data-reveal>
+          <a href="mailto:akhilpalavarapu08@gmail.com" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 4l6 5 6-5M2 4h12v9a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Get in Touch
+          </a>
+          <a href="index.html" class="btn btn-ghost">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 8H2M5 4L1 8l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back to Portfolio
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide footer-inner">
+      <p class="footer-copy">© 2024 Akhil Palavarapu. Designed with intention.</p>
+      <a href="#" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to top
+      </a>
+    </div>
+  </footer>
+
+  <script>
+    // Nav scroll
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 40), { passive: true });
+
+    // Reveal
+    const els = document.querySelectorAll('[data-reveal]');
+    new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (!e.isIntersecting) return;
+        setTimeout(() => e.target.classList.add('visible'), i * 70);
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' }).observe(...els.length ? els : [document.body]);
+
+    // Stagger each individually
+    els.forEach(el => {
+      new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add('visible');
+        }
+      }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' }).observe(el);
+    });
+  </script>
+
+</body>
+</html>
